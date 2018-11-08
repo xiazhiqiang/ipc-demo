@@ -1,0 +1,15 @@
+{
+  "name": "ipc-demo",
+  "version": "1.0.0",
+  "description": "nodejs ipc demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cfork": "^1.7.1",
+    "http": "^0.0.0"
+  }
+}
