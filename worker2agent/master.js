@@ -2,17 +2,17 @@
 
 /*
 *
-*             ┌────────┐
-*             │ parent │
-*            /└────────┘\
-*           /     |      \
-*          /  ┌────────┐  \
-*         /   │ master │   \
-*        /    └────────┘    \
-*       /     /         \    \
-*     ┌───────┐         ┌───────┐
-*     │ agent │ ------- │  app  │
-*     └───────┘         └───────┘
+                  +--------+          +-------+
+                  | Master |<-------->| Agent |
+                  +--------+          +-------+
+                  ^   ^    ^
+                 /    |     \
+               /      |       \
+             /        |         \
+           v          v          v
+  +----------+   +----------+   +----------+
+  | Worker 1 |   | Worker 2 |   | Worker 3 |  ...
+  +----------+   +----------+   +----------+
 *
 * 创建
 * master -> child_process.fork
@@ -48,8 +48,8 @@ var agentWorker = childProcess.fork(agent_worker);
 
 // master监听agent发过来的消息
 agentWorker.on("message", function(msg) {
-  if (msg && msg.action === 'agent2worker') {
-    workerManager['appWorker_' + (msg.data.workerId || '')].send(msg.data.msg);
+  if (msg && msg.action === "agent2worker") {
+    workerManager["appWorker_" + (msg.data.workerId || "")].send(msg.data.msg);
     return;
   }
 
@@ -60,7 +60,6 @@ agentWorker.on("error", function(err) {
   console.error(err);
 });
 
-
 // app_worker进程
 cfork({
   exec: app_worker,
@@ -68,14 +67,14 @@ cfork({
 });
 
 cluster.on("fork", function(worker) {
-  workerManager['appWorker_' + worker.id] = worker;
+  workerManager["appWorker_" + worker.id] = worker;
   console.log("[midway:cluster] new web-worker#%s:%s start, state: %s, current workers: %j",
     worker.id, worker.process.pid, worker.state, Object.keys(cluster.workers));
 
   // master监听worker发送过来的消息
   worker.on("message", function(msg) {
     // 将worker发过来的消息转发给agent
-    if (msg && msg.action === 'worker2agent') {
+    if (msg && msg.action === "worker2agent") {
       agentWorker.send(msg);
       return;
     }
