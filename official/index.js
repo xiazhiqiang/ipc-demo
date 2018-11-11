@@ -1,3 +1,7 @@
+/**
+ * nodejs官网多进程demo
+ */
+
 "use strict";
 
 var cluster = require("cluster");
@@ -30,4 +34,3 @@ if (cluster.isMaster) {
     res.end("hello world\n");
   }).listen(9999);
 }
-

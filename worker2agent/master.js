@@ -2,26 +2,26 @@
 
 /*
 *
-*             ┌────────┐
-*             │ parent │
-*            /└────────┘\
-*           /     |      \
-*          /  ┌────────┐  \
-*         /   │ master │   \
-*        /    └────────┘    \
-*       /     /         \    \
-*     ┌───────┐         ┌───────┐
-*     │ agent │ ------- │  app  │
-*     └───────┘         └───────┘
+                  +--------+          +-------+
+                  | Master |<-------->| Agent |
+                  +--------+          +-------+
+                  ^   ^    ^
+                 /    |     \
+               /      |       \
+             /        |         \
+           v          v          v
+  +----------+   +----------+   +----------+
+  | Worker 1 |   | Worker 2 |   | Worker 3 |  ...
+  +----------+   +----------+   +----------+
 *
 * 创建
 * master -> child_process.fork
 * master -> cluster.fork(cfork)
 *
-* message通信
+* message通信，模拟 app_worker <-> agent_worker 通信，消息链路如下：
 *
-* app_worker -> master
-* agent_worker -> master
+* app_worker -> master -> agent_worker -> master -> app_worker
+*
 */
 
 var path = require("path");
@@ -36,23 +36,29 @@ var agent_worker = path.join(__dirname, "agent_worker.js");
 // CPU个数
 var cpuNum = require("os").cpus().length;
 
+var workerManager = {};
+
 console.log("[master] " + "start master...");
 
 // agent_agent进程
 var agentWorker = childProcess.fork(agent_worker);
 
 // master向agent发送消息
-agentWorker.send("hello agent" + agentWorker.pid);
+// agentWorker.send("hello agent" + agentWorker.pid);
 
 // master监听agent发过来的消息
 agentWorker.on("message", function(msg) {
+  if (msg && msg.action === "agent2worker") {
+    workerManager["appWorker_" + (msg.data.workerId || "")].send(msg.data.msg);
+    return;
+  }
+
   console.log("message from agent: " + msg);
 });
 
 agentWorker.on("error", function(err) {
   console.error(err);
 });
-
 
 // app_worker进程
 cfork({
@@ -61,16 +67,23 @@ cfork({
 });
 
 cluster.on("fork", function(worker) {
+  workerManager["appWorker_" + worker.id] = worker;
   console.log("[midway:cluster] new web-worker#%s:%s start, state: %s, current workers: %j",
     worker.id, worker.process.pid, worker.state, Object.keys(cluster.workers));
 
   // master监听worker发送过来的消息
   worker.on("message", function(msg) {
+    // 将worker发过来的消息转发给agent
+    if (msg && msg.action === "worker2agent") {
+      agentWorker.send(msg);
+      return;
+    }
+
     console.log("message from worker: " + msg);
   });
 
   // master向worker发送消息
-  worker.send("hello worker" + worker.id);
+  // worker.send("hello worker" + worker.id);
 });
 
 cluster.on("disconnect", (worker) => {
